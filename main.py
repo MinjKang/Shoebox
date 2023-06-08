@@ -3,6 +3,8 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from model import User, User_login
 from database import MongoDB
 import uvicorn
+from pymongo import MongoClient;
+from shoebox import rs_system;
 
 app = FastAPI()
 security = HTTPBasic()
@@ -10,9 +12,11 @@ security = HTTPBasic()
 mongo = MongoDB('mongodb+srv://aistudio_3jo:a1234567@userdata.routxa4.mongodb.net/?retryWrites=true&w=majority', 'data')
 
 @app.get('/userlist')
-def load_user():
+async def load_user() -> dict:
    user_list = mongo.load_user() 
-   return {'result': user_list}
+   return {
+       'result': user_list
+       }
 
 @app.post('/user')
 def add_user(user: User):
@@ -27,6 +31,15 @@ def login(credentials: HTTPBasicCredentials):
         return {'result': 'Authentication succeeded'}
     else:
         raise HTTPException(status_code=401, detail='Incorrect username or password')
+    
+@app.post('/review/')
+async def review(id: int, brand: str, size: int):
+    mongo.update_size(id=id, brand=brand, size=size)
+
+@app.post('/user/recom/')
+async def size_recommend(id:int, brand: str):
+    
+    return rs_system(id, brand)
     
 if __name__ == '__main__':
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

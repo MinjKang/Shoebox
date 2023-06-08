@@ -1,5 +1,8 @@
 from pymongo import MongoClient
 from model import User, User_login
+import pydantic
+from bson import ObjectId
+pydantic.json.ENCODERS_BY_TYPE[ObjectId]=str
 
 class MongoDB:
     def __init__(self, uri: str, db_name: str):
@@ -8,9 +11,9 @@ class MongoDB:
     
     def load_user(self):
         user_data = self.db['users'].find()
-        user_list = {}
+        user_list = []
         for item in user_data:
-            user_list = item['users']
+            user_list.append(item)
         return user_list
 
     def check_user_cred(self, username: str, password: str) -> bool:
@@ -23,6 +26,12 @@ class MongoDB:
         except Exception:
             return False
 
+    def update_size(self, id: int, brand: str, size: int):
+        self.db['users'].update_one({'id': id}, {"$set": {"shoesSizes": {brand : size}}})
+        user_data = self.db['users'].find_one({"userId": id})
+        print(user_data)
+        
+        return user_data
 
 # # MongoDB 연결
 # client = motor.motor_asyncio.AsyncIOMotorClient('mongodb://root:password@mongodb:27017')
