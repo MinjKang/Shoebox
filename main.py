@@ -34,12 +34,14 @@ def login(credentials: HTTPBasicCredentials):
     
 @app.post('/review/')
 async def review(id: int, brand: str, size: int):
-    mongo.update_size(id=id, brand=brand, size=size)
+    return mongo.update_size(id=id, brand=brand, size=size)
 
 @app.post('/user/recom/')
 async def size_recommend(id:int, brand: str):
-    
-    return rs_system(id, brand)
+    data = mongo.load_user()
+    size = rs_system(data, id, brand)
+    mongo.update_size(id=id, brand=brand, size=size)
+    return rs_system(data, id, brand)
     
 if __name__ == '__main__':
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

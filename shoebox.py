@@ -8,21 +8,24 @@ from scipy.sparse.linalg import svds
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import json
 
 def data_loader(data):
-    data = pd.read_csv(data)
-    rs_data = data.iloc[:, 1:6]
-    return rs_data
+    shoesData = pd.json_normalize(data)
+    shoesData = shoesData.drop(['_id', 'userId', 'userName', 'age', 'gender', 'email', 'id', 'password'], axis=1)
+    shoesData = shoesData.rename(columns={"shoesSizes.nike": "nike", "shoesSizes.adidas": "adidas", "shoesSizes.newBalance": "newBalance", "shoesSizes.vans": "vans", "shoesSizes.converse": "converse"})
+    return shoesData
 
 def roundTraditional(val, digits):
     return round(val+10**(-len(str(val))-1), digits)
 
-def recommend_movies(df_svd_preds, user_id, brands):
-    sorted_user_predictions = roundTraditional(df_svd_preds.iloc[user_id][brands], -1)
+def recommend_sizes(df_svd_preds, user_id, brands):
+    sorted_user_predictions = roundTraditional(df_svd_preds.iloc[user_id-1][brands], -1)
     return sorted_user_predictions
 
-def rs_system(user, brand):
-    rs_data = data_loader('shoes_size.csv')
+def rs_system(data, user, brand):
+    rs_data = data_loader(data)
+    print(rs_data)
     
     m = rs_data.mean(axis=1)
     for i, col in enumerate(rs_data):
@@ -37,6 +40,6 @@ def rs_system(user, brand):
     svd_user_predicted_ratings = np.dot(np.dot(U, sigma), Vt) + sizes_mean.reshape(-1, 1)
     df_svd_preds = pd.DataFrame(svd_user_predicted_ratings, columns = rs_data.columns)
 
-    predictions = recommend_movies(df_svd_preds, user, brand)
+    predictions = recommend_sizes(df_svd_preds, user, brand)
     
     return predictions

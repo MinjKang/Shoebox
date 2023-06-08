@@ -27,7 +27,12 @@ class MongoDB:
             return False
 
     def update_size(self, id: int, brand: str, size: int):
-        self.db['users'].update_one({'id': id}, {"$set": {"shoesSizes": {brand : size}}})
+        target_user = self.db['users'].find_one({'userId': id })
+        size_obj = target_user['shoesSizes']
+        size_obj[brand] = size
+        print(target_user)
+        print(size_obj)
+        self.db['users'].update_one({'userId': id}, {"$set": {"shoesSizes": size_obj}})
         user_data = self.db['users'].find_one({"userId": id})
         print(user_data)
         
