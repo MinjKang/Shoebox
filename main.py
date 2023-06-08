@@ -1,37 +1,53 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from model import User, User_login
+from model import User, UserLogin, UserCreate
 from database import MongoDB
 import uvicorn
-from pymongo import MongoClient;
-from shoebox import rs_system;
+from fastapi.security import OAuth2PasswordBearer
+from fastapi_login.exceptions import InvalidCredentialsException
+from pymongo import MongoClient
+from shoebox import rs_system
+
+# from pydantic import BaseModel
+import pydantic
+from bson import ObjectId
+pydantic.json.ENCODERS_BY_TYPE[ObjectId]=str
 
 app = FastAPI()
 security = HTTPBasic()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 mongo = MongoDB('mongodb+srv://aistudio_3jo:a1234567@userdata.routxa4.mongodb.net/?retryWrites=true&w=majority', 'data')
 
 @app.get('/userlist')
-async def load_user() -> dict:
+def load_user():
    user_list = mongo.load_user() 
-   return {
-       'result': user_list
-       }
-
-@app.post('/user')
-def add_user(user: User):
-    if mongo.add_user(user):
-        return {'result', 'User added successfully'}
-    else:
-        raise HTTPException(status_code=400, detail='Adding user failed')
+   return {'result': user_list}
 
 @app.post('/login')
-def login(credentials: HTTPBasicCredentials):
-    if mongo.check_user_cred(credentials.username, credentials.password):
-        return {'result': 'Authentication succeeded'}
-    else:
-        raise HTTPException(status_code=401, detail='Incorrect username or password')
-    
+async def login(user: UserLogin):
+    user_id = user.id
+    user_password = user.password
+    db_user = mongo.load_user_id(user_id) 
+    if db_user is None or not mongo.verify_password(user_password, db_user['password']):
+        raise HTTPException(status_code=400, detail='Invalid username or password')
+    return {'message: User successfully logged in'}
+    # return {'access_token': user_id, 'token_type': 'bearer'}
+
+@app.post('/signup', status_code=201)
+async def signup(user: UserCreate):
+    already_user = mongo.load_user_id(user.id)
+    if already_user:
+        raise HTTPException(status_code=400, detail='Username is already taken')
+    hashed_password = mongo.hash_password(user.password)
+    mongo.create_user(user.userName, user.age, user.gender, user.email, user.id, hashed_password, user.shoesSizes)
+    return {'message': 'User successfully created'}
+
+@app.get('/user/')
+async def load_userId(user_id: int):
+    user_data = mongo.load_user_userID(user_id)
+    return user_data
+
 @app.post('/review/')
 async def review(id: int, brand: str, size: int):
     return mongo.update_size(id=id, brand=brand, size=size)
@@ -42,46 +58,6 @@ async def size_recommend(id:int, brand: str):
     size = rs_system(data, id, brand)
     mongo.update_size(id=id, brand=brand, size=size)
     return rs_system(data, id, brand)
-    
+
 if __name__ == '__main__':
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-# from fastapi import FastAPI, HTTPException
-# from fastapi.responses import JSONResponse
-# from fastapi.encoders import jsonable_encoder
-# from fastapi.middleware.cors import CORSMiddleware
-
-# from database import ( get_user_info, hash_password, verify_password )
-# from model import UserLogin
-# @app.post("/user/login")
-# async def user_login(user:UserLoginSchema = Body(default=None)):
-#     user_entered = jsonable_encoder(user)
-#     user_info =  await get_user_info(user_entered["email"])
-    
-#     if await check_user(user_entered):
-#         return {
-#             "message" : "Successfully Logged In!",
-#             "data": {    
-#                 "access_token" :signJWT(user.email),
-#                 "user_info": {
-#                     "user_name": user_info["email"].split("@")[0],
-#                     "profile_image": user_info["profile_image"],
-#                     "role": user_info["role"]
-#                 }
-#             }
-#         }
-#     else:
-#         raise HTTPException(status_code=400, detail="Incorrect password")
-
-
-# async def check_user(user_entered):
-#     try:
-#         user_info = await get_user_info(user_entered["email"])
-#         hashed_password = user_info["password"]
-        
-#         if verify_password(user_entered['password'], hashed_password):
-#             return True
-#         else:
-#             return False
-#     except:
-#         raise HTTPException(status_code=400, detail="Incorrect email")
